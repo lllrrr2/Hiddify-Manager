@@ -59,6 +59,30 @@
 
 ### Other
 
+* Update. [hiddify-com]
+
+* Update. [hiddify-com]
+
+* Merge branch 'main' of github.com:hiddify/Hiddify-Manager. [hiddify-com]
+
+* Update app.cfg. [Hiddify]
+
+* Update app.cfg. [Hiddify]
+
+* Better panel management. [hiddify-com]
+
+* Better purge. [hiddify-com]
+
+* Better logging. [hiddify-com]
+
+* Do not delete resolveconf. [hiddify-com]
+
+* Only set custom dns config if dns is not working. [hiddify-com]
+
+* Update xray to 1.8.16. [hiddify-com]
+
+* Remove delay in restarting service. [hiddify-com]
+
 * Fix first installation progress windows. [hiddify-com]
 
 * Merge pull request #4190 from Iam54r1n4/devm10-patch-9. [Hiddify]
