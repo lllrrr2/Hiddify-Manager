@@ -1,6 +1,8 @@
 # bash download_wgcf.sh
-source /opt/hiddify-manager/common/utils.sh
-if ! is_installed wgcf; then
-    curl -fsSL git.io/wgcf.sh | sudo bash
+source /opt/hiddify-manager/common/package_manager.sh
+install_package wireguard-tools
+download_package wgcf wgcf
+if [ "$?" == "0"  ] || ! is_installed ./wgcf; then
+    chmod +x wgcf || exit 1
+    set_installed_version wgcf
 fi
-install_package wireguard-dkms wireguard-tools

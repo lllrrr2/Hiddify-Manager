@@ -6,7 +6,7 @@ install_package mariadb-server
 
 if [ ! -f "mysql_pass" ]; then
     echo "Generating a random password..."
-    random_password=$(openssl rand -base64 40)
+    random_password=$(< /dev/urandom tr -dc 'a-zA-Z0-9' | head -c49; echo)
     echo "$random_password" >"mysql_pass"
     chmod 600 "mysql_pass"
     # Secure MariaDB installation
@@ -59,13 +59,8 @@ if ! grep -q "^[^#]*bind-address\s*=\s*127.0.0.1" "$MARIADB_CONF"; then
     fi
     echo "bind-address set to 127.0.0.1 in $MARIADB_CONF"
     
-    # Restart the MariaDB service
-    if systemctl is-active --quiet mariadb; then
-        sudo systemctl restart mariadb
-        echo "MariaDB service restarted"
-    else
-        echo "MariaDB service is not running. Please start it manually."
-    fi
+    sudo systemctl restart mariadb
+    
 fi
 
 systemctl start mariadb

@@ -1,6 +1,11 @@
 
 # Before Anything Else...
 We are looking for contributors for this project. Please send email to hiddify@gmail.com
+```
+git clone --recurse-submodules -j8 git://github.com/hiddify/hiddify-manager.git
+
+```
+Basic tutorial on how to contibute to HiddifyManager is [here](https://hiddify.com/manager/contribution/How-to-contribute-to-this-project/)
 
 We need several type of helps:
 - Introducing our panel (we don't have any big media 😦)

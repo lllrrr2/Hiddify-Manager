@@ -3,7 +3,6 @@ cd $(dirname -- "$0")
 source ./common/utils.sh
 NAME="0-install"
 LOG_FILE="$(log_file $NAME)"
-
 # Fix the installation directory
 if [ ! -d "/opt/hiddify-manager/" ] && [ -d "/opt/hiddify-server/" ]; then
     mv /opt/hiddify-server /opt/hiddify-manager
@@ -24,24 +23,29 @@ function main() {
     export ERROR=0
     
     export PROGRESS_ACTION="Installing..."
-    
+    if [ "$MODE" == "apply_users" ];then
+        export DO_NOT_INSTALL="true"
+    elif [ -d "/hiddify-data-default/" ] && [ -z "$(ls -A /hiddify-data/ 2>/dev/null)" ]; then
+        cp -r /hiddify-data-default/* /hiddify-data/
+    fi
     if [ "$DO_NOT_INSTALL" == "true" ];then
         PROGRESS_ACTION="Applying..."
     fi
-    if [ "$HIDDIFY_DEBUG" = "1" ]; then
-        export USE_VENV=true
-        install_python
-    else
-        activate_python_venv
-    fi
 
+    export USE_VENV=313
+
+    install_python
+    activate_python_venv
+    
     if [ "$MODE" != "apply_users" ]; then
         clean_files
         update_progress "${PROGRESS_ACTION}" "Common Tools and Requirements" 2
-        runsh install.sh common
-        install_run other/redis
-        install_run other/mysql
-        
+        runsh install.sh common &
+        if [ "$MODE" != "docker" ];then
+            install_run other/redis &
+            install_run other/mysql &
+        fi    
+        wait
         # Because we need to generate reality pair in panel
         # is_installed xray || bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install --version 1.8.4
         
@@ -49,76 +53,79 @@ function main() {
     fi
     
     # source common/set_config_from_hpanel.sh
-    update_progress "HiddifyPanel" "Reading Configs from Panel..." 5
-    set_config_from_hpanel
-    
-    update_progress "Applying Configs" "..." 8
-    
-    bash common/replace_variables.sh
+    if [ "$DO_NOT_RUN" != "true" ];then
+      update_progress "HiddifyPanel" "Reading Configs from Panel..." 5
+      set_config_from_hpanel
+
+      update_progress "Applying Configs" "..." 8
+
+      bash common/replace_variables.sh
+    fi
     
     if [ "$MODE" != "apply_users" ]; then
         bash ./other/deprecated/remove_deprecated.sh
         update_progress "Configuring..." "System and Firewall settings" 10
-        runsh run.sh common
+        runsh run.sh common &
         
         update_progress "${PROGRESS_ACTION}" "Nginx" 15
-        install_run nginx
+        install_run nginx &
         
-        update_progress "${PROGRESS_ACTION}" "Haproxy for Spliting Traffic" 20
-        install_run haproxy
+        (
+            update_progress "${PROGRESS_ACTION}" "Haproxy for Spliting Traffic" 20
+            install_run haproxy
         
-        update_progress "${PROGRESS_ACTION}" "Getting Certificates" 30
-        install_run acme.sh
+            update_progress "${PROGRESS_ACTION}" "Getting Certificates" 30
+            install_run acme.sh 
+        )&
         
         update_progress "${PROGRESS_ACTION}" "Personal SpeedTest" 35
-        install_run other/speedtest $(hconfig "speed_test")
+        install_run other/speedtest $(hconfig "speed_test") &
         
+        update_progress "${PROGRESS_ACTION}" "dnstt Proxy" 40
+        install_run other/dnstt $(hconfig "dnstt_enable") &
+
         update_progress "${PROGRESS_ACTION}" "Telegram Proxy" 40
-        install_run other/telegram $(hconfig "telegram_enable")
+        install_run other/telegram $(hconfig "telegram_enable") &
         
         update_progress "${PROGRESS_ACTION}" "FakeTlS Proxy" 45
-        install_run other/ssfaketls $(hconfig "ssfaketls_enable")
+        install_run other/ssfaketls $(hconfig "ssfaketls_enable") &
         
         # update_progress "${PROGRESS_ACTION}" "V2ray WS Proxy" 50
         # install_run other/v2ray $ENABLE_V2RAY
         
         update_progress "${PROGRESS_ACTION}" "SSH Proxy" 55
-        install_run other/ssh $(hconfig "ssh_server_enable")
+        install_run other/ssh 0 &
         
         #update_progress "${PROGRESS_ACTION}" "ShadowTLS" 60
         #install_run other/shadowtls $(hconfig "shadowtls_enable")
         
-        
-        update_progress "${PROGRESS_ACTION}" "Xray" 70
-        if [[ $(hconfig "core_type") == "xray" ]];then
-            install_run xray 1
-        else
-            install_run xray 0
-        fi
-        
-        
-        
-        update_progress "${PROGRESS_ACTION}" "Warp" 75
+        update_progress "${PROGRESS_ACTION}" "Warp" 70
         
         if [[ $(hconfig "warp_mode") != "disable" ]];then
-            install_run other/warp 1
-        else
-            install_run other/warp 0
+            install_run other/warp 1 &
+        else   
+            install_run other/warp 0 &
         fi
+
+        update_progress "${PROGRESS_ACTION}" "Xray" 75
         
-        update_progress "${PROGRESS_ACTION}" "Wireguard" 85
-        install_run other/wireguard $(hconfig "wireguard_enable")
+        install_run xray 1 &
         
-        update_progress "${PROGRESS_ACTION}" "HiddifyCli" 90
-        install_run other/hiddify-cli $(hconfig "hiddifycli_enable")
+        
+        update_progress "${PROGRESS_ACTION}" "HiddifyCli" 80
+        install_run other/hiddify-cli $(hconfig "hiddifycli_enable") &
         
     fi
+
+
+    update_progress "${PROGRESS_ACTION}" "Wireguard" 85
+    install_run other/wireguard $(hconfig "wireguard_enable") &
     
     update_progress "${PROGRESS_ACTION}" "Singbox" 95
-    install_run singbox
+    install_run singbox &
     
     update_progress "${PROGRESS_ACTION}" "Almost Finished" 98
-    
+    wait 
     echo "---------------------Finished!------------------------"
     remove_lock $NAME
     if [ "$MODE" != "apply_users" ]; then
@@ -148,8 +155,7 @@ function cleanup() {
 trap cleanup SIGINT
 
 function set_config_from_hpanel() {
-    (cd hiddify-panel && python3 -m hiddifypanel all-configs) >current.json
-    chmod 600 current.json
+    reload_all_configs >/dev/null
     if [[ $? != 0 ]]; then
         error "Exception in Hiddify Panel. Please send the log to hiddify@gmail.com"
         exit 4
@@ -160,15 +166,17 @@ function set_config_from_hpanel() {
 }
 
 function install_run() {
-    echo "==========================================================="
-    if [ "$DO_NOT_INSTALL" != "true" ];then
-        runsh install.sh $@
-        if [ "$MODE" != "apply_users" ]; then
+    echo "======================$1====================================={"
+   if [ "$DO_NOT_INSTALL" != "true" ];then
+            runsh install.sh $@
+        if [ "$MODE" != "apply_users" ] && [ "$MODE" != "docker"  ]; then
             systemctl daemon-reload
         fi
     fi
-    runsh run.sh $@
-    echo "==========================================================="
+    if [ "$DO_NOT_RUN" != "true" ];then
+         runsh run.sh $@
+    fi   
+    echo "}========================$1==================================="
 }
 
 function runsh() {

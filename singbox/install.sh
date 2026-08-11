@@ -1,20 +1,20 @@
 source ../common/utils.sh
+source ../common/package_manager.sh
 rm -rf configs/*.template
 
-# latest= #$(get_release_version hiddify-sing-box)
-latest=1.8.8.h4
+# latest= #$(get_release_version hiddify-hiddify-core)
+version="" #use specific version if needed otherwise it will use the latest
 
-if [ "$(cat VERSION 2>/dev/null)" != "$latest" ] || ! is_installed ./sing-box; then
-    pkg=$(dpkg --print-architecture)
-    
-    curl -sLo sb.zip https://github.com/hiddify/hiddify-sing-box/releases/download/v$latest/sing-box-linux-$pkg.zip > /dev/null
-    
-    unzip -o sb.zip > /dev/null
-    cp -f sing-box-*/sing-box . 2>/dev/null
-    echo $latest >VERSION
-    rm -r sb.zip sing-box-* 2>/dev/null
-    chown root:root sing-box
-    chmod +x sing-box
-    ln -sf /opt/hiddify-manager/singbox/sing-box /usr/bin/sing-box
-    rm geosite.db 2>/dev/null
+
+
+download_package singbox sb.tar.gz $version
+if [ "$?" == "0"  ] || ! is_installed ./hiddify-core; then
+    tar -xzf sb.tar.gz  || exit 1
+    cp -f hiddify-core-*/* . 2>/dev/null || exit 2
+    rm -r sb.zip hiddify-core-* 2>/dev/null || exit 3
+    chown root:root hiddify-core || exit 4
+    chmod +x hiddify-core || exit 5
+    ln -sf /opt/hiddify-manager/singbox/hiddify-core /usr/bin/hiddify-core || exit 6
+    rm geosite.db 2>/dev/null 
+    set_installed_version singbox $version
 fi
